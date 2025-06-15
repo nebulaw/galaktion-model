@@ -9,12 +9,12 @@ class TokenizerBase(ABC):
     """
     base class for text tokenizers that convert text to numerical tokens and back.
 
-    provides methods for encoding text to token IDs, decoding IDs to text, and handling special tokens (start, end, padding, unknown).
+    provides methods for encoding text to token ids, decoding ids to text, and handling special tokens (start, end, padding, unknown).
 
     attributes:
-        special_tokens (List[str]): Special tokens used by the tokenizer
-        idx_to_token (Dict[int, str]): Token index to string mapping
-        token_to_idx (Dict[str, int]): Token string to index mapping
+        special_tokens (List[str]): special tokens used by the tokenizer
+        idx_to_token (Dict[int, str]): token index to string mapping
+        token_to_idx (Dict[str, int]): token string to index mapping
     """
 
     def __init__(self) -> None:
@@ -52,7 +52,7 @@ class TokenizerBase(ABC):
         get the total number of unique tokens in the tokenizer's vocabulary
 
         returns:
-            int: The total number of tokens in the vocabulary, including special tokens
+            int: the total number of tokens in the vocabulary, including special tokens
         """
         return len(self.idx_to_token)
 
