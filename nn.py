@@ -1,6 +1,38 @@
-import torch
 import torch.nn as nn
-import torch.functional as F
+import torch.nn.functional as F
+import torch
+
+
+class BigramModel(nn.Module):
+    def __init__(self, vocab_size, pad_token_idx):
+        super().__init__()
+        self.embeddings = nn.Embedding(num_embeddings=vocab_size, embedding_dim=vocab_size, padding_idx=pad_token_idx)
+
+    def forward(self, x, targets=None):
+        logits = self.embeddings(x)
+        if targets is not None:
+            B, T, C = logits.shape
+            logits = logits.view(B * T, C)
+            targets = targets.view(B * T)
+
+            loss = F.cross_entropy(logits, targets)
+        else:
+            loss = None
+
+        return logits, loss
+
+    def generate(self, x, max_new_tokens, end_token_idx):
+        for i in range(max_new_tokens):
+            logits, _ = self(x)
+            logits = logits[:, -1, :]
+
+            probs = F.softmax(logits, dim=1)
+            x_next = torch.multinomial(probs, num_samples=1)
+
+            x = torch.cat((x, x_next), dim=1)
+            if x_next == end_token_idx:
+                return x
+        return x
 
 
 class SingleHeadAttention(nn.Module):
@@ -21,18 +53,17 @@ class SingleHeadAttention(nn.Module):
         q = self.query(x)
 
         wei = q @ k.transpose(-2, -1) / self.d_model ** 0.5
-        wei = wei.masked_fill(self.trill[:T, :T] == 0, float("-inf"))
+        wei = wei.masked_fill(self.trill[:T, :T] == 0, float('-inf'))
         wei = F.softmax(wei, dim=-1)
         wei = self.dropout(wei)
         v = self.value(x)
         out = wei @ v
         return out
 
-
 class MultiHeadAttention(nn.Module):
     def __init__(self, d_model, head_dim, block_size, n_heads, dropout):
         super().__init__()
-        self.heads = nn.ModuleList([SingleHeadAttention(d_model, head_dim//n_heads, block_size, dropout)])
+        self.heads = nn.ModuleList([SingleHeadAttention(d_model, head_dim//n_heads, block_size, dropout) for _ in range(n_heads)])
         self.proj = nn.Linear(head_dim, d_model)
         self.dropout = nn.Dropout(dropout)
 
@@ -43,7 +74,7 @@ class MultiHeadAttention(nn.Module):
 
 
 class FFN(nn.Module):
-    def __init__(self, ffn_dim, d_model, dropout):
+    def __init__(self, ffn_dim,  d_model, dropout):
         super().__init__()
         self.ffn1 = nn.Linear(in_features=d_model, out_features=ffn_dim)
         self.relu = nn.ReLU()
@@ -74,10 +105,12 @@ class Block(nn.Module):
         return out
 
 
-class Decoder(nn.Module):
-    def __init__(self, vocab_size, embedding_dim, head_dim, block_size, n_heads, ffn_dim, n_layers, dropout, pad_token_idx):
+
+class DecoderModel(nn.Module):
+    def __init__(self, vocab_size, embedding_dim, head_dim, block_size, n_heads, ffn_dim, n_layers,
+                 dropout, pad_token_idx):
         super().__init__()
-        self.vocab_size = vocab_size
+        self.block_size = block_size
         self.embeddings = nn.Embedding(num_embeddings=vocab_size, embedding_dim=embedding_dim, padding_idx=pad_token_idx)
         self.positional_embeddings = nn.Embedding(num_embeddings=block_size, embedding_dim=embedding_dim)
         self.blocks = nn.Sequential(*[Block(d_model=embedding_dim, head_dim=head_dim,
@@ -87,7 +120,7 @@ class Decoder(nn.Module):
         self.final_ln = nn.LayerNorm(embedding_dim)
 
     def forward(self, x, targets=None):
-        B, T = x.shape
+        B, T= x.shape
         x = self.embeddings(x)
         x += self.positional_embeddings(torch.arange(T, device=x.device))
 
@@ -98,9 +131,11 @@ class Decoder(nn.Module):
             B, T, C = logits.shape
             logits = logits.view(B * T, C)
             targets = targets.view(B * T)
+
             loss = F.cross_entropy(logits, targets)
         else:
             loss = None
+
         return logits, loss
 
     def generate(self, x, max_new_tokens, end_token_idx):
@@ -116,5 +151,3 @@ class Decoder(nn.Module):
             if x_next == end_token_idx:
                 return x
         return x
-
-
