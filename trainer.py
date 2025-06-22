@@ -11,7 +11,7 @@ class Trainer:
         self.tokenizer = CharacterTokenizer.load(tokenizer_dir)
         self.input_data_dir = input_data_dir
         self.model_dir = model_dir
-        self.device = torch.device('mps')
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.config = Config
         self.dataloader = self.load_data()
         pad_token_idx = self.tokenizer.token_to_idx[self.tokenizer.pad_token]
